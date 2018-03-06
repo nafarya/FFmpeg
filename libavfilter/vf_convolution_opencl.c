@@ -28,7 +28,6 @@
 #include "opencl_source.h"
 #include "video.h"
 
-#define MAX_DIAMETER 23
 
 typedef struct ConvolutionOpenCLContext {
     OpenCLFilterContext ocf;
@@ -66,7 +65,8 @@ static int convolution_opencl_init(AVFilterContext *avctx)
     }
 
     // Use global kernel if mask size will be too big for the local store..
-    ctx->global = (ctx->size_x  > ctx->size_y);
+    //ctx->global = (ctx->size_x  > ctx->size_y);
+    ctx->global = 1;
 
     ctx->kernel = clCreateKernel(ctx->ocf.program,
                                  ctx->global ? "convolution_global"
@@ -162,10 +162,10 @@ static int convolution_opencl_filter_frame(AVFilterLink *inlink, AVFrame *input)
             global_work[0] = output->width;
             global_work[1] = output->height;
         } else {
-            global_work[0] = FFALIGN(output->width,  16);
-            global_work[1] = FFALIGN(output->height, 16);
-            local_work[0]  = 16;
-            local_work[1]  = 16;
+            global_work[0] = FFALIGN(output->width,  8);
+            global_work[1] = FFALIGN(output->height, 8);
+            local_work[0]  = 8;
+            local_work[1]  = 8;
         }
 
         av_log(avctx, AV_LOG_DEBUG, "Run kernel on plane %d "
@@ -237,7 +237,7 @@ static av_cold void convolution_opencl_uninit(AVFilterContext *avctx)
 #define OFFSET(x) offsetof(ConvolutionOpenCLContext, x)
 #define FLAGS (AV_OPT_FLAG_FILTERING_PARAM | AV_OPT_FLAG_VIDEO_PARAM)
 static const AVOption convolution_opencl_options[] = {
-
+    { NULL }
 };
 
 AVFILTER_DEFINE_CLASS(convolution_opencl);
