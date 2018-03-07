@@ -22,4 +22,6 @@
 extern const char *ff_opencl_source_overlay;
 extern const char *ff_opencl_source_unsharp;
 
+extern const char *ff_opencl_source_convolution;
+
 #endif /* AVFILTER_OPENCL_SOURCE_H */
