@@ -37,9 +37,6 @@ typedef struct ConvolutionOpenCLContext {
     cl_kernel        kernel;
     cl_command_queue command_queue;
 
-    cl_int   size_x;
-    cl_int   size_y;
-
     char *matrix_str;
     cl_int size;
 
@@ -91,8 +88,6 @@ static int convolution_opencl_init(AVFilterContext *avctx)
         goto fail;
     }
 
-    // Use global kernel if mask size will be too big for the local store..
-    //ctx->global = (ctx->size_x  > ctx->size_y);
     ctx->global = 1;
 
     ctx->kernel = clCreateKernel(ctx->ocf.program,
@@ -120,10 +115,11 @@ fail:
 static int convolution_opencl_make_filter_params(AVFilterContext *avctx)
 {
     ConvolutionOpenCLContext *ctx = avctx->priv;
-    const AVPixFmtDescriptor *desc;
-
-
-
+    float *matrix;
+    size_t matrix_bytes;
+    cl_mem buffer;
+    cl_int cle;
+    int err = 0;
     char *p, *arg, *saveptr = NULL;
 
     float input_matrix[49];
@@ -136,10 +132,8 @@ static int convolution_opencl_make_filter_params(AVFilterContext *avctx)
         ctx->matrix_length++;
     }
 
-    float *matrix;
-    size_t matrix_bytes = sizeof(float)*ctx->matrix_length;
+    matrix_bytes = sizeof(float)*ctx->matrix_length;
     matrix = av_malloc(matrix_bytes);
-
 
     if (ctx->matrix_length == 9) {
         ctx->size = 3;
@@ -158,9 +152,6 @@ static int convolution_opencl_make_filter_params(AVFilterContext *avctx)
         matrix[i] = input_matrix[i];
 
 
-    cl_int cle;
-    cl_mem buffer;
-    int err = 0;
 
     buffer = clCreateBuffer(ctx->ocf.hwctx->context,
                             CL_MEM_READ_ONLY |
@@ -268,10 +259,10 @@ static int convolution_opencl_filter_frame(AVFilterLink *inlink, AVFrame *input)
             global_work[0] = output->width;
             global_work[1] = output->height;
         } else {
-            global_work[0] = FFALIGN(output->width,  8);
-            global_work[1] = FFALIGN(output->height, 8);
-            local_work[0]  = 8;
-            local_work[1]  = 8;
+            global_work[0] = FFALIGN(output->width,  16);
+            global_work[1] = FFALIGN(output->height, 16);
+            local_work[0]  = 16;
+            local_work[1]  = 16;
         }
 
         av_log(avctx, AV_LOG_DEBUG, "Run kernel on plane %d "
@@ -320,7 +311,6 @@ static av_cold void convolution_opencl_uninit(AVFilterContext *avctx)
 {
     ConvolutionOpenCLContext *ctx = avctx->priv;
     cl_int cle;
-    int i;
 
 
     if (ctx->kernel) {
@@ -346,7 +336,6 @@ static const AVOption convolution_opencl_options[] = {
     { "m",    "set matrix ",  OFFSET(matrix_str), AV_OPT_TYPE_STRING, {.str="0 0 0 0 1 0 0 0 0"}, 0, 0, FLAGS },
     { "rdiv", "set rdiv",     OFFSET(rdiv),      AV_OPT_TYPE_FLOAT,  {.dbl=1.0}, 0.0, INT_MAX, FLAGS},
     { "bias", "set bias",     OFFSET(bias),     AV_OPT_TYPE_FLOAT,  {.dbl=0.0}, 0.0, INT_MAX, FLAGS},
-
     { NULL }
 };
 
