@@ -52,7 +52,6 @@ typedef struct ConvolutionContext {
     int matrix_length[4];
     int copy[4];
 
-    int opencl;
     int (*filter[4])(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs);
 } ConvolutionContext;
 
@@ -1071,10 +1070,9 @@ AVFilter ff_vf_convolution = {
 #if CONFIG_PREWITT_FILTER
 
 static const AVOption prewitt_options[] = {
-    { "planes", "set planes to filter", OFFSET(planes), AV_OPT_TYPE_INT,  {.i64=15 }, 0, 15, FLAGS},
+    { "planes", "set planes to filter", OFFSET(planes), AV_OPT_TYPE_INT,  {.i64=15}, 0, 15, FLAGS},
     { "scale",  "set scale",            OFFSET(scale), AV_OPT_TYPE_FLOAT, {.dbl=1.0}, 0.0,  65535, FLAGS},
-    { "delta",  "set delta",            OFFSET(delta), AV_OPT_TYPE_FLOAT, {.dbl=0  }, -65535, 65535, FLAGS},
-    { "opencl", "ignored",              OFFSET(opencl),AV_OPT_TYPE_BOOL,  {.i64=0  }, 0, 1, FLAGS },
+    { "delta",  "set delta",            OFFSET(delta), AV_OPT_TYPE_FLOAT, {.dbl=0}, -65535, 65535, FLAGS},
     { NULL }
 };
 
