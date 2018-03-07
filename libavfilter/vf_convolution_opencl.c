@@ -41,13 +41,11 @@ typedef struct ConvolutionOpenCLContext {
     cl_int   size_y;
 
     char *matrix_str;
-    float rdiv[4];
-    float bias[4];
     cl_int size;
 
     cl_int matrix_length;
-    cl_float mydiv;
-    cl_float mybias;
+    cl_float rdiv;
+    cl_float bias;
     cl_mem matrix;
 
     int global;
@@ -146,15 +144,12 @@ static int convolution_opencl_make_filter_params(AVFilterContext *avctx)
     if (ctx->matrix_length == 9) {
         ctx->size = 3;
         memcpy(matrix, default3x3, ctx->matrix_length);
-        //matrix = default3x3;
     } else if (ctx->matrix_length == 25) {
             ctx->size = 5;
             memcpy(matrix, default5x5, ctx->matrix_length);
-          //  matrix = default5x5;
     } else if (ctx->matrix_length == 49) {
             ctx->size = 7;
             memcpy(matrix, default7x7, ctx->matrix_length);
-            //matrix = default7x7;
     } else {
         return AVERROR(EINVAL);
     }
@@ -163,30 +158,23 @@ static int convolution_opencl_make_filter_params(AVFilterContext *avctx)
         matrix[i] = input_matrix[i];
 
 
-    double val, sum;
     cl_int cle;
     cl_mem buffer;
+    int err = 0;
 
-    float diam_x, diam_y, amount;
-    int err = 0 , x, y, size_x, size_y;
-
-    if (ctx->global) {
-        buffer = clCreateBuffer(ctx->ocf.hwctx->context,
-                                CL_MEM_READ_ONLY |
-                                CL_MEM_COPY_HOST_PTR |
-                                CL_MEM_HOST_NO_ACCESS,
-                                matrix_bytes, matrix, &cle);
-        if (!buffer) {
-            av_log(avctx, AV_LOG_ERROR, "Failed to create matrix buffer: "
-                   "%d.\n", cle);
-            err = AVERROR(EIO);
-            goto fail;
-        }
-        ctx->matrix = buffer;
-
-        ctx->mydiv = 1;
-        ctx->mybias = 0;
+    buffer = clCreateBuffer(ctx->ocf.hwctx->context,
+                            CL_MEM_READ_ONLY |
+                            CL_MEM_COPY_HOST_PTR |
+                            CL_MEM_HOST_NO_ACCESS,
+                            matrix_bytes, matrix, &cle);
+    if (!buffer) {
+        av_log(avctx, AV_LOG_ERROR, "Failed to create matrix buffer: "
+               "%d.\n", cle);
+        err = AVERROR(EIO);
+        goto fail;
     }
+    ctx->matrix = buffer;
+
     return err;
 fail:
     av_freep(&matrix);
@@ -262,13 +250,13 @@ static int convolution_opencl_filter_frame(AVFilterLink *inlink, AVFrame *input)
                    "matrix argument: %d.\n", cle);
             goto fail;
         }
-        cle = clSetKernelArg(ctx->kernel, 4, sizeof(cl_float), &ctx->mydiv);
+        cle = clSetKernelArg(ctx->kernel, 4, sizeof(cl_float), &ctx->rdiv);
         if (cle != CL_SUCCESS) {
             av_log(avctx, AV_LOG_ERROR, "Failed to set kernel "
                    "div argument: %d.\n", cle);
             goto fail;
         }
-        cle = clSetKernelArg(ctx->kernel, 5, sizeof(cl_float), &ctx->mybias);
+        cle = clSetKernelArg(ctx->kernel, 5, sizeof(cl_float), &ctx->bias);
         if (cle != CL_SUCCESS) {
             av_log(avctx, AV_LOG_ERROR, "Failed to set kernel "
                    "bias argument: %d.\n", cle);
@@ -356,8 +344,8 @@ static av_cold void convolution_opencl_uninit(AVFilterContext *avctx)
 #define FLAGS (AV_OPT_FLAG_FILTERING_PARAM | AV_OPT_FLAG_VIDEO_PARAM)
 static const AVOption convolution_opencl_options[] = {
     { "m",    "set matrix ",  OFFSET(matrix_str), AV_OPT_TYPE_STRING, {.str="0 0 0 0 1 0 0 0 0"}, 0, 0, FLAGS },
-    { "rdiv", "set rdiv",     OFFSET(mydiv),      AV_OPT_TYPE_FLOAT,  {.dbl=1.0}, 0.0, INT_MAX, FLAGS},
-    { "bias", "set bias",     OFFSET(mybias),     AV_OPT_TYPE_FLOAT,  {.dbl=0.0}, 0.0, INT_MAX, FLAGS},
+    { "rdiv", "set rdiv",     OFFSET(rdiv),      AV_OPT_TYPE_FLOAT,  {.dbl=1.0}, 0.0, INT_MAX, FLAGS},
+    { "bias", "set bias",     OFFSET(bias),     AV_OPT_TYPE_FLOAT,  {.dbl=0.0}, 0.0, INT_MAX, FLAGS},
 
     { NULL }
 };

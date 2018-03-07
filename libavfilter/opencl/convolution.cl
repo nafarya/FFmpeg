@@ -43,7 +43,7 @@ __kernel void convolution_global(__write_only image2d_t dst,
             convPix += px * coef_matrix[(conv_i+1)*MATRIXSIZE+(conv_j+1)];
         }
      }
-     write_imagef(dst, loc, convPix / div + bias);
+     write_imagef(dst, loc, convPix * div + bias);
 }
 
 __kernel void convolution_local(__write_only image2d_t dst,
